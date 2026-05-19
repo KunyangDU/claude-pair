@@ -1,0 +1,14 @@
+# API Key (optional — if not set, no auth required)
+# Can also use: export REMOTE_VIBING_API_KEY="xxx"
+auth:
+  # api_key: ""
+
+# Server settings
+server:
+  port: 8787
+
+# Cloudflare Tunnel settings
+tunnel:
+  mode: "named"
+  # name: "claude-pair"
+  # domain: "claude.your-domain.com"

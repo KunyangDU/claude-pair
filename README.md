@@ -40,7 +40,7 @@ node server.js
 # → Remote: https://claude.your-domain.com/v1
 ```
 
-[Cloudflare Tunnel setup guide](docs/SETUP-CLOUDFLARED.md)
+[Complete setup guide](docs/SETUP.md)
 
 ## Chat client setup (Chatbox)
 

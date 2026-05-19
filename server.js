@@ -58,6 +58,15 @@ function stripQuotes(s) {
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+// JSON parse error handler
+app.use((err, req, res, next) => {
+    if (err.type === 'entity.parse.failed') {
+        res.status(400).json({ error: 'Invalid JSON in request body' });
+        return;
+    }
+    next(err);
+});
+
 // CORS
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -70,15 +79,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Auth
+// Auth (applied to sensitive routes below)
 const auth = createAuthMiddleware(config);
-app.use('/v1', auth);
 
 // ── Lifecycle state ──────────────────────────────────────────────
 const activeProcesses = new Set();
 let idleTimer = null;
 let shuttingDown = false;
-const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const IDLE_TIMEOUT_MS = 3 * 60 * 60 * 1000;
 
 // Store last session meta for naming requests
 const sessionMeta = { folder: '', sessionId: '' };
@@ -92,7 +100,11 @@ const APPROVAL_KEYWORDS = [
 function isApprovalMessage(msg) {
     const trimmed = msg.trim().toLowerCase();
     if (trimmed.length > 10) return false;
-    return APPROVAL_KEYWORDS.some(k => trimmed === k || trimmed.includes(k));
+    // Check negation first
+    const negations = ['不', '别', '取消', '拒绝', '否', 'no', 'n', 'stop', 'cancel', 'deny'];
+    if (negations.includes(trimmed)) return false;
+    // Exact match only
+    return APPROVAL_KEYWORDS.includes(trimmed);
 }
 
 function resetIdleTimer() {
@@ -134,7 +146,7 @@ app.get('/v1/models', (req, res) => {
 });
 
 // List sessions for a project folder
-app.get('/v1/sessions', (req, res) => {
+app.get('/v1/sessions', auth, (req, res) => {
     const folder = req.query.folder;
     if (!folder) {
         res.status(400).json({ error: 'Missing ?folder= query param' });
@@ -156,8 +168,8 @@ app.get('/v1/sessions', (req, res) => {
     }
 });
 
-// Chat completions
-app.post('/v1/chat/completions', (req, res) => {
+// Chat completions (auth required)
+app.post('/v1/chat/completions', auth, (req, res) => {
     const { messages, stream } = req.body;
 
     // ── Naming request ──
@@ -249,7 +261,10 @@ app.post('/v1/chat/completions', (req, res) => {
 const PORT = config?.server?.port || 8787;
 const server = app.listen(PORT, () => {
     console.log(`\n  Local:  http://localhost:${PORT}`);
-    console.log(`  Remote: https://claude.cronlab.top/v1\n`);
+    const remote = config?.tunnel?.domain
+        ? `https://${config.tunnel.domain}/v1`
+        : '(tunnel not configured)';
+    console.log(`  Remote: ${remote}\n`);
     resetIdleTimer();
 });
 
@@ -261,9 +276,11 @@ server.on('error', (err) => {
     throw err;
 });
 
-// Graceful shutdown on SIGINT/SIGTERM
-process.on('SIGINT', () => {
-    console.log('\n[lifecycle] SIGINT, shutting down...');
-    for (const child of activeProcesses) child.kill();
-    process.exit(0);
+// Graceful shutdown
+['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, () => {
+        console.log(`\n[lifecycle] ${signal}, shutting down...`);
+        for (const child of activeProcesses) child.kill();
+        process.exit(0);
+    });
 });
