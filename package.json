@@ -1,0 +1,28 @@
+{
+  "name": "claude-pair",
+  "version": "1.0.0",
+  "description": "Pair any OpenAI-compatible chat client with your existing Claude Code session — no subscription, no context loss.",
+  "main": "server.js",
+  "type": "module",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KunyangDU/claude-pair.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KunyangDU/claude-pair/issues"
+  },
+  "homepage": "https://github.com/KunyangDU/claude-pair#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
