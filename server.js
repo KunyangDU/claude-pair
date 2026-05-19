@@ -126,9 +126,7 @@ function startServer() {
     const PORT = config?.server?.port || 8787;
     const server = app.listen(PORT, () => {
         console.log(`\n  Local:  http://localhost:${PORT}`);
-        const remote = config?.tunnel?.domain
-            ? `https://${config.tunnel.domain}/v1`
-            : '(tunnel not configured)';
+        const remote = config?.remote?.url || '(remote URL not configured)';
         console.log(`  Remote: ${remote}\n`);
         lifecycle.resetIdleTimer();
     });

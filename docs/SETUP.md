@@ -27,77 +27,62 @@ npm install -g claude-pair
 mkdir -p ~/.claude-pair
 ```
 
-编辑 `~/.claude-pair/config.yaml`：
+编辑 `~/.claude-pair/config.yaml`。agent 按以下顺序询问用户，每个都先给建议值再让用户确认：
+
+**1. API Key** — agent 随机生成一个 8-12 位字符串作为建议值，问用户"用这个还是你自己设一个？"
+> 留空则免认证。
+
+**2. 默认项目路径** — agent 探测用户桌面路径（macOS: `/Users/<user>/Desktop`，Windows: `C:\Users\<user>\Desktop`）作为建议值，问用户"先指向桌面测试？还是直接指定项目路径？"
+
+**3. 公网 URL** — agent 问："用 Cloudflare Tunnel（免费需域名）、已有公网 URL、还是先留空用 localhost？"
+> 选 Cloudflare → 参考下方方案 B，拿到 URL 后回填；选已有 → 用户直接提供；选留空 → 暂不填。
+
+根据用户回答写入：
 
 ```yaml
 auth:
-  api_key: "your-key-here"    # Chatbox 里填的密码；不想认证就注释掉或留空
+  api_key: "<确认后的值>"
 server:
-  port: 8787                   # 本地服务端口，一般不用改
-tunnel:
-  mode: "named"
-  # name: "claude-pair"        # named 模式填 tunnel 名字（见第 3 步）
-  # domain: "claude.your-domain.com"  # 你的域名
+  port: 8787
+  default_folder: "<确认后的值>"
+remote:
+  url: "<确认后的值>"
 ```
 
-**不想配 API Key**：把 `api_key` 注释掉或删掉，服务端不验证。
+## 3. 获取公网 URL
 
-## 3. Cloudflare Tunnel（一次性）
+Server 只监听 `localhost:8787`，任选一种方式让外网可达：
 
-详细踩坑记录见 [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md)，这里是最小步骤：
-
-**macOS:**
-```bash
-brew install cloudflared
-```
-
-**Windows:**
-```powershell
-# 下载 cloudflared 并放入 PATH
-# https://github.com/cloudflare/cloudflared/releases
-```
+### 方案 A：ngrok（最快，无需域名）
 
 ```bash
-# 登录（浏览器弹窗确认）
-cloudflared tunnel login
-
-# 创建隧道
-cloudflared tunnel create claude-pair
-# 输出: Tunnel credentials written to ~/.cloudflared/<tunnel-id>.json
-# 记下这个 <tunnel-id>
-
-# 绑定域名
-cloudflared tunnel route dns claude-pair claude.your-domain.com
-
-# 创建 ~/.cloudflared/config.yml（注意 tunnel id 和路径换成你的）
-cat > ~/.cloudflared/config.yml << 'EOF'
-tunnel: <your-tunnel-id>
-credentials-file: /Users/<you>/.cloudflared/<your-tunnel-id>.json
-
-ingress:
-  - hostname: claude.your-domain.com
-    service: http://localhost:8787
-  - service: http_status:404
-EOF
+ngrok http 8787
+# 输出: https://abc123.ngrok.io → http://localhost:8787
+# 写入 config: remote.url: "https://abc123.ngrok.io/v1"
 ```
 
-**注意**：路径必须用绝对路径，`~` 不生效。
+### 方案 B：Cloudflare Tunnel（免费，需要域名）
+
+详见 [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md)。完成后写入 URL：
+```yaml
+remote:
+  url: "https://claude.your-domain.com/v1"
+```
+
+### 方案 C：已有公网 URL
+
+如果你已有 VPS 做了反代，或者通过其他方式穿透到了公网，直接在 `remote.url` 填入完整 URL 即可，跳过本节。
 
 ## 4. 启动
 
 ```bash
-# 终端 1：启动 server
 claude-pair serve
 # 输出:
 #   Local:  http://localhost:8787
-#   Remote: https://claude.your-domain.com/v1
-
-# 终端 2：启动 tunnel（可能需设置代理，见踩坑文档）
-cloudflared tunnel --config ~/.cloudflared/config.yml run
-# 看到 "Registered tunnel connection" 就说明连上了
+#   Remote: https://your-url.com/v1
 ```
 
-> 如果你的网络需要代理才能连 Cloudflare，先 `export HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890`
+用一个终端就够了。ngrok / frp 等工具可以在另一个终端或后台运行。
 
 ## 5. Chatbox 手机端配置
 
@@ -106,7 +91,7 @@ cloudflared tunnel --config ~/.cloudflared/config.yml run
 | 配置项 | 值 |
 |--------|-----|
 | Provider | OpenAI (兼容) |
-| API URL | `https://claude.your-domain.com/v1` |
+| API URL | `https://your-domain.com/v1`（即 config 中的 `remote.url`） |
 | API Key | 和 config.yaml 里一样（没配就不填） |
 | Model | `claude-code` |
 | System Prompt | 见下方 |
@@ -181,8 +166,6 @@ curl -s --max-time 60 http://localhost:8787/v1/chat/completions \
 
 ## 7. 常驻后台（可选）
 
-用 `tmux` 或 `screen` 让 server + tunnel 在后台持续运行：
-
 ```bash
 # 启动 tmux 会话
 tmux new -s claude-pair
@@ -190,9 +173,7 @@ tmux new -s claude-pair
 # 窗格 1：启动 server
 claude-pair serve
 
-# Ctrl+b " 分屏 → 窗格 2：启动 tunnel
-cloudflared tunnel --config ~/.cloudflared/config.yml run
-
+# Ctrl+b " 分屏 → 窗格 2：启动穿透工具（ngrok / cloudflared 等）
 # Ctrl+b d 断开，进程继续跑
 # tmux attach -t claude-pair 恢复
 ```

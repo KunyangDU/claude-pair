@@ -21,6 +21,11 @@ export function parseSystemPrompt(raw, defaultFolder) {
         sessionId = input;
     }
 
+    // Reject excessively long sessionId (malicious or malformed input)
+    if (sessionId && sessionId.length > 100) {
+        sessionId = '';
+    }
+
     return { folder, sessionId, permission: 'ask' };
 }
 

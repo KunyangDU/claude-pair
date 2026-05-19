@@ -42,6 +42,6 @@ Just paste this in the System Prompt field (a plain string, not JSON):
 ```
 
 Also tell them:
-- URL: `https://<domain>/v1` (or local `http://localhost:8787/v1`)
+- URL: the remote URL from `~/.claude-pair/config.yaml` (`remote.url`), or `http://localhost:8787/v1` for local
 - API Key: set in `~/.claude-pair/config.yaml` — if not configured yet, run `claude-pair serve` once and edit the file
 - Model: `claude-code`

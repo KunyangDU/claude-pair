@@ -8,8 +8,7 @@ server:
   port: 8787
   # default_folder: "/path/to/your/project"
 
-# Cloudflare Tunnel settings
-tunnel:
-  mode: "named"
-  # name: "claude-pair"
-  # domain: "claude.your-domain.com"
+# Remote access URL — how external clients reach this server
+# Cloudflare Tunnel, ngrok, frp, Tailscale, or any reverse proxy
+remote:
+  # url: "https://your-domain.com/v1"

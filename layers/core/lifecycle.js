@@ -35,10 +35,15 @@ export function createLifecycle(server) {
         });
     });
 
+    function isShuttingDown() {
+        return shuttingDown;
+    }
+
     return {
         activeProcesses,
         resetIdleTimer,
         tryShutdown,
+        isShuttingDown,
         IDLE_TIMEOUT_MS,
     };
 }

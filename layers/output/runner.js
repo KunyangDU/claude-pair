@@ -88,6 +88,14 @@ export function runClaude(opts, res) {
         let json;
         try { json = JSON.parse(line); } catch (_) { return; }
 
+        if (json.type === 'error') {
+            res.write(`data: ${JSON.stringify({ error: json.error || json.message || 'Claude internal error' })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+            if (!child.killed) child.kill();
+            return;
+        }
+
         if (json.type === 'system' && json.subtype === 'init') {
             if (json.session_id) opts._effectiveSessionId = json.session_id;
         }
@@ -168,7 +176,7 @@ function findSession(sessionId) {
             if (fs.existsSync(sessionPath)) {
                 let folder = null;
                 try {
-                    const lines = fs.readFileSync(sessionPath, 'utf8').split('\n').slice(0, 20);
+                    const lines = fs.readFileSync(sessionPath, 'utf8').split('\n').slice(0, 100);
                     for (const line of lines) {
                         const cwdMatch = line.match(/"cwd"\s*:\s*"([^"]+)"/);
                         if (cwdMatch) { folder = cwdMatch[1]; break; }

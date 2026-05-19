@@ -15,7 +15,19 @@ export function createChatRoute(config, lifecycle) {
     const sessionMeta = { folder: '', sessionId: '' };
 
     return (req, res) => {
+        // ── Shutdown check ──
+        if (lifecycle.isShuttingDown()) {
+            res.status(503).json({ error: 'Server is shutting down' });
+            return;
+        }
+
         const { messages, stream } = req.body;
+
+        // ── Validate input ──
+        if (!messages || !messages.length) {
+            res.status(400).json({ error: 'No messages provided' });
+            return;
+        }
 
         // ── Naming request ──
         if (isNamingRequest(messages)) {
