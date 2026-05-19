@@ -28,7 +28,6 @@ Your chat client sends an OpenAI-format request. The system prompt is a plain st
 # 1. Install
 git clone https://github.com/KunyangDU/claude-pair.git
 cd claude-pair
-npm install
 
 # 2. Start (config auto-created at ~/.claude-pair/config.yaml)
 node server.js
@@ -79,6 +78,18 @@ Switch modes anytime — reply `允许` to approve an edit, or set the permissio
 2. 08c8562f-4a08-4a2a-aaab-869d0e720863               → resume by UUID
 3. /Users/me/another-project                           → new session in that folder
 ```
+
+## Updating
+
+```bash
+cd claude-pair
+git pull
+claude-pair install          # sync skill.md (add --global if global install)
+# Check ~/.claude-pair/config.yaml for any new fields
+```
+
+- `skill.md` is overwritten automatically by `install`.
+- `config.yaml` is never overwritten — your API key and paths are safe.
 
 ## Documentation
 
