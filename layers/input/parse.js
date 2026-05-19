@@ -8,7 +8,11 @@
  *   - empty → uses defaultFolder
  */
 export function parseSystemPrompt(raw, defaultFolder) {
-    const input = (raw || '').trim();
+    const text = (raw || '').trim();
+
+    // Chatbox prepends metadata lines (model, date, etc.) — extract user's actual input
+    const lastLine = text.split('\n').pop().trim();
+    const input = lastLine || text;
 
     let folder = '';
     let sessionId = '';
