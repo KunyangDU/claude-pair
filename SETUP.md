@@ -4,10 +4,9 @@
 
 ## 0. 前置条件
 
-- macOS（Linux 同理，路径调整即可）
+- macOS / Linux / Windows
 - Node.js >= 18
 - Claude Code CLI 已安装（`which claude` 能找到）
-- 一个域名，DNS 托管在 Cloudflare
 
 ## 1. 安装
 
@@ -17,7 +16,7 @@ npm install -g claude-pair
 
 安装后可用命令：
 - `claude-pair serve` — 启动 HTTP server
-- `claude-pair install` — 安装 Claude Code skill 到当前项目
+- `claude-pair install` — 安装 Claude Code skill（默认全局 `~/.claude/skills/`，加 `--local` 仅当前项目）
 
 ## 2. 配置
 
@@ -63,7 +62,7 @@ ngrok http 8787
 
 ### 方案 B：Cloudflare Tunnel（免费，需要域名）
 
-详见 [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md)。完成后写入 URL：
+Agent 阅读 [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md) 后指导用户完成域名 + Tunnel 配置。完成后写入 URL：
 ```yaml
 remote:
   url: "https://claude.your-domain.com/v1"
@@ -148,14 +147,13 @@ curl http://localhost:8787/health
 curl http://localhost:8787/v1/models
 # → {"object":"list","data":[{"id":"claude-code","object":"model"}]}
 
-# 3. 发送一条测试消息
+# 3. 发送一条测试消息（使用 default_folder）
 curl -s --max-time 60 http://localhost:8787/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key-here" \
   -d '{
     "model": "claude-code",
     "messages": [
-      {"role":"system","content":"{\"folder\":\"/path/to/your/project\"}"},
       {"role":"user","content":"说你好"}
     ],
     "stream": true

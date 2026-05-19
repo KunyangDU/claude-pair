@@ -3,6 +3,9 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { createAuthMiddleware } from './layers/input/auth.js';
 import { createChatRoute, createSessionsRoute } from './layers/core/route.js';
@@ -11,7 +14,7 @@ import { createLifecycle } from './layers/core/lifecycle.js';
 // ── Config loading ──────────────────────────────────────────────
 const CONFIG_DIR = path.join(os.homedir(), '.claude-pair');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.yaml');
-const CONFIG_EXAMPLE_PATH = path.join(import.meta.dirname, 'config.example.yaml');
+const CONFIG_EXAMPLE_PATH = path.join(__dirname, 'config.example.yaml');
 
 function ensureConfigDir() {
     if (!fs.existsSync(CONFIG_DIR)) {
@@ -166,11 +169,11 @@ Object.assign(lifecycle, realLifecycle);
 
 // ── Install skill ─────────────────────────────────────────────────
 function installSkill() {
-    const skillSource = path.join(import.meta.dirname, 'skill.md');
-    const globalFlag = process.argv.includes('--global') || process.argv.includes('-g');
-    const skillsDir = globalFlag
-        ? path.join(os.homedir(), '.claude', 'skills')
-        : path.join(process.cwd(), '.claude', 'skills');
+    const skillSource = path.join(__dirname, 'skill.md');
+    const localFlag = process.argv.includes('--local') || process.argv.includes('-l');
+    const skillsDir = localFlag
+        ? path.join(process.cwd(), '.claude', 'skills')
+        : path.join(os.homedir(), '.claude', 'skills');
     const skillDest = path.join(skillsDir, 'claude-pair.md');
 
     if (!fs.existsSync(skillSource)) {
@@ -181,14 +184,16 @@ function installSkill() {
         fs.mkdirSync(skillsDir, { recursive: true });
     }
     fs.copyFileSync(skillSource, skillDest);
-    console.log(`Skill installed → ${skillDest}${globalFlag ? ' (global)' : ''}`);
+    console.log(`Skill installed → ${skillDest}${localFlag ? ' (local)' : ' (global)'}`);
 
     const apiKey = (process.env.REMOTE_VIBING_API_KEY || config?.auth?.api_key || '').trim();
     if (!apiKey) {
-        console.log('\n⚠️  No API key configured. Set one in ~/.claude-pair/config.yaml:');
+        console.log(`\n⚠️  No API key configured. Set one in ${CONFIG_PATH}:`);
         console.log('  auth:');
         console.log('    api_key: "your-key-here"\n');
     }
+    // Don't keep the server running for install-only invocations
+    process.exit(0);
 }
 
 function showHelp() {
@@ -197,10 +202,10 @@ claude-pair — Pair any chat client with your Claude Code session
 
 Usage:
   claude-pair serve            Start the HTTP server (default)
-  claude-pair install          Install Claude Code skill to current project
-  claude-pair install --global Install Claude Code skill globally (~/.claude/skills/)
+  claude-pair install          Install Claude Code skill globally (~/.claude/skills/)
+  claude-pair install --local  Install Claude Code skill to current project only
 
-Config: ~/.claude-pair/config.yaml
+Config: ${CONFIG_PATH}
 `);
 }
 

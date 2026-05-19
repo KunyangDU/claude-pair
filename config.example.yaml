@@ -6,7 +6,8 @@ auth:
 # Server settings
 server:
   port: 8787
-  # default_folder: "/path/to/your/project"
+  # default_folder: "/path/to/your/project"   # macOS / Linux
+  # default_folder: "C:\\Users\\you\\project"  # Windows
 
 # Remote access URL — how external clients reach this server
 # Cloudflare Tunnel, ngrok, frp, Tailscale, or any reverse proxy

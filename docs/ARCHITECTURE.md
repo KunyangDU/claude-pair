@@ -29,8 +29,8 @@ parse.js                   → 纯文本检测: 空=defaultFolder, /开头=路�
       ↓
 route.js                   → 编排: 校验 → 审批检测 → 生命周期跟踪
       ↓
-runner.js                  → spawn claude --print --resume <id> --output-format stream-json --verbose
-      ↓                         ↓ spawn claude --permission-mode acceptEdits (仅在 auto 或审批时)
+runner.js                  → spawn claude --print --resume <id> --output-format stream-json --verbose --include-partial-messages
+      ↓                         ↓ spawn claude --permission-mode bypassPermissions (仅在 auto 或审批时)
 readline 逐行解析 stdout    → JSON 行 → 类型判断 → SSE chunk
       ↓
 res.write(data: {...}\n\n)  → Chatbox 流式渲染
@@ -59,9 +59,18 @@ Chatbox 的 System Prompt 直接填纯文本，无需 JSON：
 | `/` 或 `C:\` 开头 | 绝对路径 | 在该目录创建新 session |
 | 其他字符串 | sessionId | 续接已有 session（文件夹自动从 JSONL 推导） |
 
-权限模式固定为 `"ask"`（只读），审批通过或 `auto` 模式由 `--permission-mode` 参数控制。
+权限模式固定为 `"ask"`（只读），审批通过或 `auto` 模式由 `--permission-mode bypassPermissions` 参数控制。
 
-与旧版 JSON 格式的区别：不再需要 `{"folder":"...","session":"..."}` ，直接粘贴 session ID 或路径即可。`parse.js` 做纯文本检测，sessionId 上限 100 字符防止恶意输入。
+### Chatbox 元数据干扰
+
+Chatbox 会自动在 System Prompt 前拼接模型名、日期等元数据：
+
+```
+Current model: claude-code\nCurrent date: 2026-05-19\n ...\n\n
+<用户实际输入>
+```
+
+`parse.js` 取**最后一行**作为有效输入，避免长字符串超过 100 字符 sessionId 上限。
 
 ## 权限模型
 
@@ -81,7 +90,7 @@ Claude 尝试 Edit → 系统拒绝 → SSE 输出 "回复「允许」执行 Edi
 
 ### auto 模式
 
-带 `--permission-mode acceptEdits`，Claude 可以直接执行命令和编辑文件。
+带 `--permission-mode bypassPermissions`，Claude 可以直接执行命令和编辑文件，无需逐个确认。
 
 ## Session 管理
 
@@ -119,19 +128,31 @@ sessionMeta = {
 
 ## 流式管道
 
+`--include-partial-messages` 让 Claude 输出两种事件类型：
+
+- `stream_event`：逐字流式增量（thinking_delta、text_delta），实时渲染
+- `assistant` / `user`：完整消息块（tool_use、tool_result），结构化展示
+
 ### stream-json → SSE 转换
 
 ```
-stream-json 行                         → SSE 输出
-───────────────────────────────────────────────────
-error                                  → data: {"error":"..."} + [DONE] + end，同时 kill 子进程
-system/init                            → (跳过，记录 session_id)
-assistant → content[].type=text        → data: {"choices":[{"delta":{"content":"..."}}]}
-assistant → content[].type=thinking    → (跳过)
-user → tool_result (is_error:true)     → (跳过，不暴露中间错误)
-result (无 permission_denials)          → data: [DONE]
-result (含 permission_denials)          → 审批提示 + data: [DONE]
+stream-json 事件                                       → SSE delta
+─────────────────────────────────────────────────────────────────────
+stream_event → content_block_delta → thinking_delta   → delta.reasoning_content  (Chatbox 可折叠)
+stream_event → content_block_delta → text_delta       → delta.content            (逐字流式)
+error                                                  → {"error":{"message":"...","type":"server_error"}} + [DONE]
+system/init                                            → (跳过，记录 session_id)
+assistant → content[].type=tool_use                   → delta.content "\n🔧 工具名 — 详情\n"
+user → content[].type=tool_result                     → delta.content "\n```\n...\n```\n" (过长截断)
+result (无 permission_denials)                          → [DONE]
+result (含 permission_denials)                          → 审批提示 + [DONE]
 ```
+
+> Chatbox 原生支持 `reasoning_content` 字段，会自动渲染为可折叠灰色"深度思考"区块。
+
+### 防重复
+
+`assistant` 事件中的 text 和 thinking 已通过 `stream_event` 流走（内容为空），只处理 `tool_use`。`user` 事件的 `tool_result` 只在完整消息中出现，无重复问题。
 
 ### endStream() — 流结束保护
 
@@ -139,7 +160,7 @@ result (含 permission_denials)          → 审批提示 + data: [DONE]
 
 - `streamEnded` 标志位：防止多次调用（timeout 和 exit 事件竞态）
 - `res.writableEnded` 检查：防止向已关闭的连接写入
-- 错误消息通过 SSE `error` 字段传递，然后写 `[DONE]` + `res.end()`
+- 错误消息以 OpenAI 兼容格式 `{"error":{"message":"...","type":"server_error"}}` 发送
 
 ### 进程保护
 
@@ -191,16 +212,19 @@ result (含 permission_denials)          → 审批提示 + data: [DONE]
 | `layers/core/session.js` | core | 从 sessionId 反查 folder（JSONL 扫描、cwd 提取、文件大小限制 256KB） |
 | `layers/output/runner.js` | output | spawn Claude CLI、stream-json→SSE 转换、endStream 防竞态、Claude error 事件处理、超时/断连保护 |
 | `layers/output/find.js` | output | Claude CLI 路径探测（跨平台：which/where + fs.accessSync） |
-| `server.js` | — | 薄入口：YAML 配置加载（ENOENT/EACCES 分级）、express.json(1mb)、entity.too.large (413)、端口校验 (1024-65535)、最终错误处理器 (500 JSON)、CLI 分发 |
+| `server.js` | — | 薄入口：YAML 配置加载（ENOENT/EACCES 分级）、express.json(1mb)、entity.too.large (413)、端口校验 (1024-65535)、最终错误处理器 (500 JSON)、CLI 分发（serve/install/help）、skill 安装（默认全局 ~/.claude/skills/） |
 
 ## 项目结构
 
 ```
 claude-pair/
 ├── server.js                  # 薄入口：配置、Express、CLI
+├── SETUP.md                   # 初始化指南（agent 向）
+├── skill.md                   # Claude Code skill 定义
+├── config.example.yaml        # 配置模板
 ├── layers/
 │   ├── input/                 # 公网输入接口（Chatbox → 数据）
-│   │   ├── parse.js           #   System Prompt 解析
+│   │   ├── parse.js           #   System Prompt 解析（取末行防 Chatbox 元数据干扰）
 │   │   ├── auth.js            #   Bearer Token 认证
 │   │   └── naming.js          #   自动命名检测
 │   ├── core/                  # 中转编排（数据处理、路由）
@@ -209,13 +233,13 @@ claude-pair/
 │   │   ├── approval.js        #   审批策略
 │   │   └── session.js         #   Session 查找 & cwd 推导
 │   └── output/                # 本地 agent 接口（→ Claude CLI）
-│       ├── runner.js          #   spawn & stream 转换
-│       └── find.js            #   CLI 路径探测
+│       ├── runner.js          #   spawn & stream 转换（stream_event + assistant 双事件处理）
+│       └── find.js            #   CLI 路径探测（跨平台）
 ├── lib/tunnel.js               # Cloudflare Tunnel 启停（独立工具）
-├── config.example.yaml
-├── skill.md
 ├── docs/
-├── package.json
+│   ├── ARCHITECTURE.md        #   架构文档
+│   ├── SETUP-CLOUDFLARED.md   #   Cloudflare Tunnel 踩坑记录
+│   └── README.md              #   操作手册索引
 └── README.md
 ```
 用户配置存放在 `~/.claude-pair/config.yaml`（首次运行自动创建）。

@@ -18,8 +18,8 @@ export function handleNamingRequest(res, sessionMeta, stream) {
     const folderName = path.basename(sessionMeta.folder);
     const shortId = sessionMeta.sessionId?.slice(0, 8);
     const name = shortId
-        ? `claude-pair: ${folderName}/${shortId}`
-        : `claude-pair: ${folderName}`;
+        ? `${folderName}/${shortId}`
+        : folderName;
 
     if (stream) {
         res.setHeader('Content-Type', 'text/event-stream');

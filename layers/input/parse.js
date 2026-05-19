@@ -7,12 +7,25 @@
  *   - UUID / "continue" / "new" → treated as session ID
  *   - empty → uses defaultFolder
  */
+// Common default system prompts from chat clients — treat as empty
+const DEFAULT_PROMPTS = new Set([
+    'you are a helpful assistant.',
+    'you are a helpful assistant',
+    'you are a helpful assistant, knowledgeable in a wide range of topics.',
+    'you are claude.',
+]);
+
 export function parseSystemPrompt(raw, defaultFolder) {
     const text = (raw || '').trim();
 
     // Chatbox prepends metadata lines (model, date, etc.) — extract user's actual input
     const lastLine = text.split('\n').pop().trim();
-    const input = lastLine || text;
+    let input = lastLine || text;
+
+    // Default system prompts from chat clients → treat as empty
+    if (input && DEFAULT_PROMPTS.has(input.toLowerCase())) {
+        input = '';
+    }
 
     let folder = '';
     let sessionId = '';

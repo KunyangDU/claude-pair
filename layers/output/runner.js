@@ -137,13 +137,10 @@ export function runClaude(opts, res) {
             const content = json.message?.content;
             if (Array.isArray(content)) {
                 for (const part of content) {
-                    if (part.type === 'text') {
-                        writeChunk(json.uuid, { content: part.text });
-                    } else if (part.type === 'thinking') {
-                        writeChunk(json.uuid, { reasoning_content: part.text });
-                    } else if (part.type === 'tool_use') {
+                    if (part.type === 'tool_use') {
                         writeChunk(json.uuid, { content: formatToolUse(part) });
                     }
+                    // text and thinking are already streamed via stream_event
                 }
             }
         }

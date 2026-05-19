@@ -26,16 +26,23 @@ Your chat client sends an OpenAI-format request. The system prompt is a plain st
 
 ```bash
 # 1. Install
-git clone https://github.com/KunyangDU/claude-pair.git
-cd claude-pair
+npm install -g claude-pair
 
 # 2. Start (config auto-created at ~/.claude-pair/config.yaml)
-node server.js
+claude-pair serve
 # → Local:  http://localhost:8787
 # → Remote: https://claude.your-domain.com/v1
 ```
 
-[Complete setup guide](docs/SETUP.md)
+Or clone for development:
+
+```bash
+git clone https://github.com/KunyangDU/claude-pair.git
+cd claude-pair
+node server.js
+```
+
+[Complete setup guide](SETUP.md)
 
 ## Chat client setup (Chatbox)
 
@@ -84,7 +91,7 @@ Switch modes anytime — reply `允许` to approve an edit, or set the permissio
 ```bash
 cd claude-pair
 git pull
-claude-pair install          # sync skill.md (add --global if global install)
+claude-pair install          # installs skill globally (~/.claude/skills/)
 # Check ~/.claude-pair/config.yaml for any new fields
 ```
 
@@ -93,7 +100,7 @@ claude-pair install          # sync skill.md (add --global if global install)
 
 ## Documentation
 
-See [docs/](docs/) — [setup guide](docs/SETUP.md), [architecture](docs/ARCHITECTURE.md), [tunnel setup](docs/SETUP-CLOUDFLARED.md).
+See [docs/](docs/) — [setup guide](SETUP.md), [architecture](docs/ARCHITECTURE.md), [tunnel setup](docs/SETUP-CLOUDFLARED.md).
 
 ## License
 
