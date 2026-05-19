@@ -6,6 +6,7 @@
 |------|------|
 | [SETUP.md](SETUP.md) | 从零初始化：clone → 配置 → 启动 → 验证 |
 | [SETUP-CLOUDFLARED.md](SETUP-CLOUDFLARED.md) | Cloudflare Tunnel 配置 + 踩坑记录 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 项目架构：数据流、权限模型、模块设计 |
 
 ## 关键文件
 

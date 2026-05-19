@@ -84,11 +84,7 @@ Switch modes anytime by changing the JSON field. No server restart needed.
 
 ## Documentation
 
-- [PLAN.md](PLAN.md) — full design and architecture
-- [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md) — Cloudflare Tunnel setup with pitfalls
-- [docs/CLAUDE_CLI_REF.md](docs/CLAUDE_CLI_REF.md) — Claude CLI `--print` usage reference
-- [docs/claude-code-remote-ARCH.md](docs/claude-code-remote-ARCH.md) — analysis of the claude-code-remote project
-- [docs/PLAN-REVIEW-1.md](docs/PLAN-REVIEW-1.md) — design review
+See [docs/](docs/) — [setup guide](docs/SETUP.md), [architecture](docs/ARCHITECTURE.md), [tunnel setup](docs/SETUP-CLOUDFLARED.md).
 
 ## License
 
