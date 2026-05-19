@@ -16,32 +16,50 @@ User says anything like:
 
 ## What to do
 
-### 1. Ensure server is running
+Work through these steps. You (the agent) execute the commands, don't ask the user to run them.
 
-Check: `curl -s http://localhost:8787/health` — if no response, tell user to run:
+### 1. Check server
+
+Run this yourself:
+```bash
+curl -s --noproxy '*' http://localhost:8787/health
 ```
+If you get `{"status":"ok"}`, server is running → skip to step 3.
+
+If no response, server is not running. Start it:
+```bash
 claude-pair serve
 ```
+Run it in the background and proceed. If `claude-pair` command not found, run `npm install -g claude-pair` first.
 
-If `claude-pair` command not found, guide through: `npm install -g claude-pair`
+> All curl commands need `--noproxy '*'` (Claude's http_proxy can't reach localhost). Auth header is `Authorization: Bearer <key>`, not `x-api-key`.
 
-### 2. Find the session ID
+### 2. Read config
 
-This conversation's session ID is in the init message, or check:
+Read the API key and remote URL:
+```bash
+cat ~/.claude-pair/config.yaml
 ```
-GET http://localhost:8787/v1/sessions?folder=<cwd>
+Extract `auth.api_key` and `remote.url` for later use.
+
+### 3. List sessions for this project
+
+Run this (replace `<api-key>` with the value from step 2):
+```bash
+curl -s --noproxy '*' "http://localhost:8787/v1/sessions?folder=$(pwd)" -H "Authorization: Bearer <api-key>"
 ```
-Pick the most recent or let user choose.
+Pick the most recent session from the response. If it returns empty, use the session ID from this conversation's init message instead.
 
-### 3. Give user the Chatbox system prompt
+### 4. Give user the Chatbox config
 
-Just paste this in the System Prompt field (a plain string, not JSON):
+Tell them to add an assistant in Chatbox:
 
-```
-<session-id>
-```
+| Setting | Value |
+|---------|-------|
+| Provider | Custom (OpenAI compatible) |
+| API URL | `<remote.url from config>/v1` (or `http://<local-ip>:8787/v1` if same network) |
+| API Key | `<api_key from config>` |
+| Model | `claude-code` |
+| System Prompt | `<session-id>` (plain text, just the UUID) |
 
-Also tell them:
-- URL: the remote URL from `~/.claude-pair/config.yaml` (`remote.url`), or `http://localhost:8787/v1` for local
-- API Key: set in `~/.claude-pair/config.yaml` — if not configured yet, run `claude-pair serve` once and edit the file
-- Model: `claude-code`
+That's it. User can now continue this session from their phone.

@@ -172,9 +172,9 @@ function installSkill() {
     const skillSource = path.join(__dirname, 'skill.md');
     const localFlag = process.argv.includes('--local') || process.argv.includes('-l');
     const skillsDir = localFlag
-        ? path.join(process.cwd(), '.claude', 'skills')
-        : path.join(os.homedir(), '.claude', 'skills');
-    const skillDest = path.join(skillsDir, 'claude-pair.md');
+        ? path.join(process.cwd(), '.claude', 'skills', 'claude-pair')
+        : path.join(os.homedir(), '.claude', 'skills', 'claude-pair');
+    const skillDest = path.join(skillsDir, 'SKILL.md');
 
     if (!fs.existsSync(skillSource)) {
         console.log('Error: skill.md not found in package. Reinstall claude-pair?');
@@ -202,7 +202,7 @@ claude-pair — Pair any chat client with your Claude Code session
 
 Usage:
   claude-pair serve            Start the HTTP server (default)
-  claude-pair install          Install Claude Code skill globally (~/.claude/skills/)
+  claude-pair install          Install Claude Code skill globally (~/.claude/skills/claude-pair/)
   claude-pair install --local  Install Claude Code skill to current project only
 
 Config: ${CONFIG_PATH}

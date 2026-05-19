@@ -6,7 +6,7 @@
 
 - macOS / Linux / Windows
 - Node.js >= 18
-- Claude Code CLI 已安装（`which claude` 能找到）
+- Claude Code CLI 已安装（`which claude` 或 Windows: `where claude`）
 
 ## 1. 安装
 
@@ -16,7 +16,7 @@ npm install -g claude-pair
 
 安装后可用命令：
 - `claude-pair serve` — 启动 HTTP server
-- `claude-pair install` — 安装 Claude Code skill（默认全局 `~/.claude/skills/`，加 `--local` 仅当前项目）
+- `claude-pair install` — 安装 Claude Code skill（默认全局 `~/.claude/skills/claude-pair/`，加 `--local` 仅当前项目）
 
 ## 2. 配置
 

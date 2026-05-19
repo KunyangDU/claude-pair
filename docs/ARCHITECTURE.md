@@ -212,7 +212,7 @@ result (含 permission_denials)                          → 审批提示 + [DON
 | `layers/core/session.js` | core | 从 sessionId 反查 folder（JSONL 扫描、cwd 提取、文件大小限制 256KB） |
 | `layers/output/runner.js` | output | spawn Claude CLI、stream-json→SSE 转换、endStream 防竞态、Claude error 事件处理、超时/断连保护 |
 | `layers/output/find.js` | output | Claude CLI 路径探测（跨平台：which/where + fs.accessSync） |
-| `server.js` | — | 薄入口：YAML 配置加载（ENOENT/EACCES 分级）、express.json(1mb)、entity.too.large (413)、端口校验 (1024-65535)、最终错误处理器 (500 JSON)、CLI 分发（serve/install/help）、skill 安装（默认全局 ~/.claude/skills/） |
+| `server.js` | — | 薄入口：YAML 配置加载（ENOENT/EACCES 分级）、express.json(1mb)、entity.too.large (413)、端口校验 (1024-65535)、最终错误处理器 (500 JSON)、CLI 分发（serve/install/help）、skill 安装（默认全局 ~/.claude/skills/claude-pair/SKILL.md） |
 
 ## 项目结构
 

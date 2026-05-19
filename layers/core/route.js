@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -101,8 +100,9 @@ export function createSessionsRoute(auth, config) {
             res.status(400).json({ error: 'Missing ?folder= query param' });
             return;
         }
-        const projectHash = crypto.createHash('md5').update(folder).digest('hex');
-        const sessionsDir = path.join(os.homedir(), '.claude', 'projects', projectHash);
+        // Claude Code names project dirs by replacing non-alphanum with `-`
+        const projectDir = folder.replace(/[^a-zA-Z0-9]/g, '-');
+        const sessionsDir = path.join(os.homedir(), '.claude', 'projects', projectDir);
 
         try {
             const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl'));

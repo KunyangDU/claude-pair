@@ -16,10 +16,12 @@ export function findSession(sessionId) {
             if (fs.existsSync(sessionPath)) {
                 let folder = null;
                 try {
-                    const MAX_SESSION_FILE = 256 * 1024; // 256KB
-                    const stat = fs.statSync(sessionPath);
-                    if (stat.size > MAX_SESSION_FILE) continue;
-                    const lines = fs.readFileSync(sessionPath, 'utf8').split('\n').slice(0, 100);
+                    const buf = Buffer.alloc(64 * 1024);
+                    const fd = fs.openSync(sessionPath, 'r');
+                    const bytesRead = fs.readSync(fd, buf, 0, buf.length, 0);
+                    fs.closeSync(fd);
+                    const head = buf.toString('utf8', 0, bytesRead);
+                    const lines = head.split('\n').slice(0, 100);
                     for (const line of lines) {
                         const cwdMatch = line.match(/"cwd"\s*:\s*"([^"]+)"/);
                         if (cwdMatch) { folder = cwdMatch[1]; break; }
