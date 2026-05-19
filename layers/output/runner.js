@@ -4,19 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { findClaude } from './claude-find.js';
+import { findClaude } from './find.js';
 
 /**
  * Run Claude Code CLI and stream the response as SSE.
- *
- * @param {object} opts
- * @param {string} opts.folder        - project working directory
- * @param {string} opts.message       - user prompt
- * @param {string} [opts.sessionId]   - uuid to resume, "new" to force new, empty to create new
- * @param {string} [opts.systemPrompt] - system prompt (after ---)
- * @param {string} [opts.permission]  - "ask" (default) or "auto"
- * @param {object} res                - Express response object
- * @param {function} onMeta           - called with { sessionId } when init line received
+ * Belongs to output layer — swap this when using a different local agent.
  */
 export function runClaude(opts, res) {
     const claudePath = findClaude();
@@ -27,14 +19,33 @@ export function runClaude(opts, res) {
         return;
     }
 
-    const { folder, message, sessionId, permission } = opts;
+    const { message, sessionId, permission } = opts;
+    let { folder } = opts;
 
     const args = ['--print'];
 
-    // Permission mode
     if (permission === 'auto') {
         args.push('--permission-mode', 'acceptEdits');
     }
+
+    // Resolve folder from session if missing
+    if (!folder && sessionId && sessionId !== 'new') {
+        const s = findSession(sessionId);
+        if (s.found) {
+            folder = s.folder;
+            opts._effectiveSessionId = sessionId;
+        }
+    }
+
+    // Validate folder
+    if (!folder) {
+        res.write(`data: ${JSON.stringify({ error: 'No folder specified. Set default_folder in config or provide a folder/session.' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return null;
+    }
+
+    opts._effectiveFolder = folder;
 
     // Session routing
     if (!sessionId || sessionId === 'new') {
@@ -43,19 +54,17 @@ export function runClaude(opts, res) {
         opts._effectiveSessionId = newId;
     } else if (sessionId === 'continue') {
         args.push('--continue');
-    } else if (sessionExists(sessionId)) {
+    } else if (findSession(sessionId).found) {
         args.push('--resume', sessionId);
     } else {
         args.push('--session-id', sessionId);
     }
 
     args.push('--output-format', 'stream-json', '--verbose');
-
-    // Append user message as final arg
     const allArgs = args.concat([message]);
 
-    console.log(`[claude-runner] spawn: ${claudePath} ${allArgs.map(a => `"${a}"`).join(' ')}`);
-    console.log(`[claude-runner] cwd: ${folder}`);
+    console.log(`[runner] spawn: ${claudePath} ${allArgs.map(a => `"${a}"`).join(' ')}`);
+    console.log(`[runner] cwd: ${folder}`);
 
     const child = spawn(claudePath, allArgs, {
         cwd: folder,
@@ -63,7 +72,6 @@ export function runClaude(opts, res) {
         stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    // Timeout: kill if Claude runs too long
     const MAX_EXECUTION_MS = 10 * 60 * 1000;
     const timeout = setTimeout(() => {
         if (!res.writableEnded) {
@@ -78,20 +86,12 @@ export function runClaude(opts, res) {
 
     rl.on('line', (line) => {
         let json;
-        try {
-            json = JSON.parse(line);
-        } catch (_) {
-            return; // skip non-JSON lines
-        }
+        try { json = JSON.parse(line); } catch (_) { return; }
 
-        // Extract session ID from init message
         if (json.type === 'system' && json.subtype === 'init') {
-            if (json.session_id) {
-                opts._effectiveSessionId = json.session_id;
-            }
+            if (json.session_id) opts._effectiveSessionId = json.session_id;
         }
 
-        // Emit assistant text
         if (json.type === 'assistant') {
             const content = json.message?.content;
             if (Array.isArray(content)) {
@@ -107,7 +107,6 @@ export function runClaude(opts, res) {
             }
         }
 
-        // Result → done; show single approval prompt if permissions were denied
         if (json.type === 'result') {
             if (json.permission_denials && json.permission_denials.length > 0) {
                 const names = [...new Set(json.permission_denials.map(d => d.tool_name))].join(', ');
@@ -123,11 +122,11 @@ export function runClaude(opts, res) {
     });
 
     child.stderr.on('data', (d) => {
-        console.error(`[claude-runner] stderr: ${d.toString()}`);
+        console.error(`[runner] stderr: ${d.toString()}`);
     });
 
     child.on('error', (err) => {
-        console.error(`[claude-runner] error: ${err.message}`);
+        console.error(`[runner] error: ${err.message}`);
         if (!res.writableEnded) {
             res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
             res.write('data: [DONE]\n\n');
@@ -137,7 +136,7 @@ export function runClaude(opts, res) {
 
     child.on('exit', (code, signal) => {
         clearTimeout(timeout);
-        console.log(`[claude-runner] exit: code=${code} signal=${signal}`);
+        console.log(`[runner] exit: code=${code} signal=${signal}`);
         if (code !== 0 && !res.writableEnded) {
             const msg = signal
                 ? `Claude process terminated by signal ${signal}`
@@ -148,29 +147,36 @@ export function runClaude(opts, res) {
         }
     });
 
-    // Client disconnected → kill child
     res.on('close', () => {
         clearTimeout(timeout);
         if (!child.killed) {
             child.kill();
-            console.log('[claude-runner] killed due to client disconnect');
+            console.log('[runner] killed due to client disconnect');
         }
     });
 
     return child;
 }
 
-function sessionExists(sessionId) {
-    // Only allow safe characters (alphanumeric + hyphens + underscores)
-    if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) return false;
+function findSession(sessionId) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) return { found: false, folder: null };
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     try {
         const dirs = fs.readdirSync(projectsDir);
         for (const dir of dirs) {
-            if (fs.existsSync(path.join(projectsDir, dir, `${sessionId}.jsonl`))) {
-                return true;
+            const sessionPath = path.join(projectsDir, dir, `${sessionId}.jsonl`);
+            if (fs.existsSync(sessionPath)) {
+                let folder = null;
+                try {
+                    const lines = fs.readFileSync(sessionPath, 'utf8').split('\n').slice(0, 20);
+                    for (const line of lines) {
+                        const cwdMatch = line.match(/"cwd"\s*:\s*"([^"]+)"/);
+                        if (cwdMatch) { folder = cwdMatch[1]; break; }
+                    }
+                } catch (_) {}
+                return { found: true, folder };
             }
         }
     } catch (_) {}
-    return false;
+    return { found: false, folder: null };
 }

@@ -1,0 +1,44 @@
+/**
+ * Parse system prompt to extract folder and session ID.
+ * Belongs to input layer — swap this when Chatbox format changes.
+ *
+ * System prompt is a plain string:
+ *   - "/" prefix or "C:\" → absolute path, treated as folder
+ *   - UUID / "continue" / "new" → treated as session ID
+ *   - empty → uses defaultFolder
+ */
+export function parseSystemPrompt(raw, defaultFolder) {
+    const input = (raw || '').trim();
+
+    let folder = '';
+    let sessionId = '';
+
+    if (!input) {
+        folder = defaultFolder || '';
+    } else if (input.startsWith('/') || /^[A-Za-z]:[\\/]/.test(input)) {
+        folder = input;
+    } else {
+        sessionId = input;
+    }
+
+    return { folder, sessionId, permission: 'ask' };
+}
+
+/**
+ * Extract the last user message content from messages array.
+ * Handles both string and array-of-content-parts formats.
+ */
+export function getLastUserMessage(messages) {
+    if (!messages || !messages.length) return '';
+    const userMsgs = messages.filter(m => m.role === 'user');
+    if (!userMsgs.length) return '';
+    const last = userMsgs[userMsgs.length - 1];
+    if (typeof last.content === 'string') return last.content;
+    if (Array.isArray(last.content)) {
+        return last.content
+            .filter(c => c.type === 'text')
+            .map(c => c.text)
+            .join('');
+    }
+    return '';
+}

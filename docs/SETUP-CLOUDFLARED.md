@@ -5,15 +5,18 @@
 ## 前置条件
 
 - 一个域名（如 `cronlab.top`），DNS 托管在 Cloudflare
-- macOS 系统（Apple Silicon）
+- macOS 系统（Apple Silicon），Windows 参考 [cloudflared 官方文档](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
 
 ---
 
 ## 1. 安装 cloudflared
 
+**macOS:**
 ```bash
 brew install cloudflared
 ```
+
+**Windows:** 从 [GitHub Releases](https://github.com/cloudflare/cloudflared/releases) 下载 `cloudflared-windows-amd64.exe`，放入 PATH。
 
 验证：
 

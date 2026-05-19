@@ -6,6 +6,7 @@ auth:
 # Server settings
 server:
   port: 8787
+  # default_folder: "/path/to/your/project"
 
 # Cloudflare Tunnel settings
 tunnel:

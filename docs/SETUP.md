@@ -1,6 +1,6 @@
 # claude-pair 初始化指南
 
-从 `git clone` 到手机远程遥控 Claude Code 的完整流程。给 AI agent 用也可以直接丢这份文档。
+从零到手机远程遥控 Claude Code 的完整流程。给 AI agent 用也可以直接丢这份文档。
 
 ## 0. 前置条件
 
@@ -12,18 +12,22 @@
 ## 1. 安装
 
 ```bash
-git clone https://github.com/KunyangDU/claude-pair.git
-cd claude-pair
-npm install
+npm install -g claude-pair
 ```
+
+安装后可用命令：
+- `claude-pair serve` — 启动 HTTP server
+- `claude-pair install` — 安装 Claude Code skill 到当前项目
 
 ## 2. 配置
 
+首次运行 `claude-pair serve` 会自动创建 `~/.claude-pair/config.yaml`。也可以手动创建：
+
 ```bash
-cp config.example.yaml config.yaml
+mkdir -p ~/.claude-pair
 ```
 
-编辑 `config.yaml`：
+编辑 `~/.claude-pair/config.yaml`：
 
 ```yaml
 auth:
@@ -42,10 +46,18 @@ tunnel:
 
 详细踩坑记录见 [docs/SETUP-CLOUDFLARED.md](docs/SETUP-CLOUDFLARED.md)，这里是最小步骤：
 
+**macOS:**
 ```bash
-# 安装
 brew install cloudflared
+```
 
+**Windows:**
+```powershell
+# 下载 cloudflared 并放入 PATH
+# https://github.com/cloudflare/cloudflared/releases
+```
+
+```bash
 # 登录（浏览器弹窗确认）
 cloudflared tunnel login
 
@@ -75,7 +87,7 @@ EOF
 
 ```bash
 # 终端 1：启动 server
-node server.js
+claude-pair serve
 # 输出:
 #   Local:  http://localhost:8787
 #   Remote: https://claude.your-domain.com/v1
@@ -101,17 +113,26 @@ cloudflared tunnel --config ~/.cloudflared/config.yml run
 
 ### System Prompt 格式
 
-```json
-{"folder": "/Users/you/your-project"}
+只需一行纯文本，无需 JSON：
+
+```
+# 续接已有 session
+08c8562f-4a08-4a2a-aaab-869d0e720863
+
+# 指定文件夹开新 session
+/Users/you/your-project
+
+# 用默认文件夹（不填）
+(留空)
 ```
 
-三个字段：
+三种模式自动识别：
 
-| 字段 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `folder` | **是** | — | 项目绝对路径 |
-| `session` | 否 | — | UUID 续接、`"new"` 强制新建、`"continue"` 最近 session |
-| `permission` | 否 | `"ask"` | `"ask"`=只读+审批 / `"auto"`=直接执行 |
+| 输入 | 行为 |
+|------|------|
+| 空 | 使用 `~/.claude-pair/config.yaml` 中配置的 `default_folder` |
+| `/` 开头（绝对路径） | 在该文件夹创建新 session |
+| 其他（UUID / "continue" / "new"） | 续接已有 session，folder 自动推导 |
 
 ### 权限模式
 
@@ -125,10 +146,10 @@ cloudflared tunnel --config ~/.cloudflared/config.yml run
 
 ```
 Assistant "工作项目"
-{"folder": "/Users/you/work-project", "permission": "ask"}
+/Users/you/work-project
 
 Assistant "个人笔记"
-{"folder": "/Users/you/notes", "permission": "auto"}
+/Users/you/notes
 ```
 
 ## 6. 验证
@@ -167,7 +188,7 @@ curl -s --max-time 60 http://localhost:8787/v1/chat/completions \
 tmux new -s claude-pair
 
 # 窗格 1：启动 server
-node /path/to/claude-pair/server.js
+claude-pair serve
 
 # Ctrl+b " 分屏 → 窗格 2：启动 tunnel
 cloudflared tunnel --config ~/.cloudflared/config.yml run
@@ -176,7 +197,7 @@ cloudflared tunnel --config ~/.cloudflared/config.yml run
 # tmux attach -t claude-pair 恢复
 ```
 
-> Server 有 1 小时空闲自动退出机制。只要手机持续使用就不会断。
+> Server 有 3 小时空闲自动退出机制。只要手机持续使用就不会断。
 
 ## 常见问题
 

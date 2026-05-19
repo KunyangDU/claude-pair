@@ -54,17 +54,19 @@ node server.js
 
 ### System prompt format
 
-Write a JSON object with the project config:
+Just a plain string — no JSON needed:
 
-```json
-{"folder": "/Users/dukunyang/本地资料/AI/remote vibing", "session": "08c8562f-...", "permission": "ask"}
+```
+08c8562f-4a08-4a2a-aaab-869d0e720863
 ```
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `folder` | **Yes** | Absolute path to your project |
-| `session` | No | UUID of an existing session, `"new"` to force new, or `"continue"` for latest |
-| `permission` | No | `"ask"` (default): read-only, replies `允许` to approve edits. `"auto"`: full read-write |
+| Value | Description |
+|-------|-------------|
+| Session ID (UUID) | Resume an existing session (folder auto-detected) |
+| `/absolute/path` | Create a new session in that folder |
+| Empty | Uses `default_folder` from config |
+
+> No `{"folder":"..."}` JSON required. Just paste the session ID or path directly.
 
 ### Permission modes
 
@@ -77,9 +79,9 @@ Switch modes anytime by changing the JSON field. No server restart needed.
 ### Session workflow
 
 ```
-1. {"folder": "/path/to/project"}                    → fresh session
-2. {"folder": "/path/to/project", "session": "<id>"}  → resume by UUID
-3. {"folder": "/path/to/project", "session": "continue"} → resume latest
+1. (empty)                                             → new session in default_folder
+2. 08c8562f-4a08-4a2a-aaab-869d0e720863               → resume by UUID
+3. /Users/me/another-project                           → new session in that folder
 ```
 
 ## Documentation

@@ -118,6 +118,8 @@ result (含 permission_denials)          → 审批提示 + data: [DONE]
 
 ```
 启动
+  ├─ 配置加载：~/.claude-pair/config.yaml（不存在则自动创建）
+  ├─ CLI 分发：claude-pair serve → startServer()
   ├─ 端口检测 → EADDRINUSE → exit 0（避免重复启动）
   └─ listen(8787) → 启动 3h 空闲计时器
 
@@ -132,32 +134,44 @@ result (含 permission_denials)          → 审批提示 + data: [DONE]
 
 ## 模块
 
-| 模块 | 职责 |
-|------|------|
-| `server.js` | Express 入口，路由注册，生命周期管理，审批检测 |
-| `lib/parse-prompt.js` | System Prompt JSON 解析 + 用户消息提取 + 命名请求检测 |
-| `lib/claude-runner.js` | spawn Claude CLI，stream-json → SSE 转换，超时保护 |
-| `lib/claude-find.js` | Claude CLI 路径探测（env → PATH → 硬编码回退） |
-| `lib/auth.js` | Bearer Token 认证，无密钥时自动降级免认证 |
-| `lib/tunnel.js` | Cloudflare Tunnel 启停封装（可独立使用） |
+| 模块 | 层级 | 职责 |
+|------|------|------|
+| `layers/input/parse.js` | input | System Prompt 字符串解析 + 用户消息提取 |
+| `layers/input/auth.js` | input | Bearer Token 认证 |
+| `layers/input/naming.js` | input | Chatbox 自动命名检测 & 响应 |
+| `layers/core/route.js` | core | 路由处理、管道编排、session 列表 |
+| `layers/core/lifecycle.js` | core | 空闲超时管理、优雅退出 |
+| `layers/core/approval.js` | core | ask→auto 审批关键词检测 |
+| `layers/output/runner.js` | output | spawn Claude CLI、stream-json→SSE 转换 |
+| `layers/output/find.js` | output | Claude CLI 路径探测（跨平台） |
+| `server.js` | — | 薄入口：配置加载、Express 组装、CLI 分发 |
+| `lib/tunnel.js` | — | Cloudflare Tunnel 启停（独立工具，非管道内） |
 
 ## 项目结构
 
 ```
 claude-pair/
-├── server.js
-├── lib/
-│   ├── parse-prompt.js
-│   ├── claude-runner.js
-│   ├── claude-find.js
-│   ├── auth.js
-│   └── tunnel.js
+├── server.js                  # 薄入口：配置、Express、CLI
+├── layers/
+│   ├── input/                 # 公网输入接口（Chatbox → 数据）
+│   │   ├── parse.js           #   System Prompt 解析
+│   │   ├── auth.js            #   Bearer Token 认证
+│   │   └── naming.js          #   自动命名检测
+│   ├── core/                  # 中转编排（数据处理、路由）
+│   │   ├── route.js           #   路由 & 管道编排
+│   │   ├── lifecycle.js       #   空闲超时 & 优雅退出
+│   │   └── approval.js        #   审批策略
+│   └── output/                # 本地 agent 接口（→ Claude CLI）
+│       ├── runner.js          #   spawn & stream 转换
+│       └── find.js            #   CLI 路径探测
+├── lib/tunnel.js               # Cloudflare Tunnel 启停（独立工具）
 ├── config.example.yaml
-├── config.yaml          (gitignored)
+├── skill.md
 ├── docs/
-│   ├── SETUP.md
-│   ├── SETUP-CLOUDFLARED.md
-│   └── ARCHITECTURE.md
 ├── package.json
 └── README.md
+```
+用户配置存放在 `~/.claude-pair/config.yaml`（首次运行自动创建）。
+
+```
 ```

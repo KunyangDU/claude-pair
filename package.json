@@ -4,6 +4,16 @@
   "description": "Pair any OpenAI-compatible chat client with your existing Claude Code session — no subscription, no context loss.",
   "main": "server.js",
   "type": "module",
+  "bin": {
+    "claude-pair": "./server.js"
+  },
+  "files": [
+    "server.js",
+    "layers/",
+    "lib/tunnel.js",
+    "config.example.yaml",
+    "skill.md"
+  ],
   "directories": {
     "doc": "docs"
   },

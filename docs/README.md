@@ -10,13 +10,15 @@
 
 ## 关键文件
 
-| 文件 | 用途 |
-|------|------|
-| `../server.js` | Express 主入口，路由 + 生命周期 |
-| `../lib/parse-prompt.js` | System Prompt JSON 解析 |
-| `../lib/claude-runner.js` | Claude CLI spawn + stream-json → SSE |
-| `../lib/claude-find.js` | Claude CLI 路径探测 |
-| `../lib/auth.js` | Bearer Token 认证 |
-| `../lib/tunnel.js` | Cloudflare Tunnel 启停（独立使用） |
-| `../config.example.yaml` | 配置模板 |
-| `../config.yaml` | 用户配置（gitignored） |
+| 文件 | 层级 | 用途 |
+|------|------|------|
+| `../layers/input/parse.js` | input | System Prompt 解析 |
+| `../layers/input/auth.js` | input | Bearer Token 认证 |
+| `../layers/input/naming.js` | input | 自动命名检测 |
+| `../layers/core/route.js` | core | 路由 & 编排 |
+| `../layers/core/lifecycle.js` | core | 生命周期管理 |
+| `../layers/core/approval.js` | core | 审批策略 |
+| `../layers/output/runner.js` | output | Claude CLI spawn |
+| `../layers/output/find.js` | output | CLI 路径探测 |
+| `../lib/tunnel.js` | — | Cloudflare Tunnel 启停 |
+| `../config.example.yaml` | — | 配置模板 |
