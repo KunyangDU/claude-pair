@@ -12,7 +12,7 @@ import { isApprovalMessage } from './approval.js';
  * Belongs to core layer — orchestrates input → output pipeline.
  */
 export function createChatRoute(config, lifecycle) {
-    const sessionMeta = { folder: '', sessionId: '' };
+    let sessionMeta = { folder: '', sessionId: '' };
 
     return (req, res) => {
         // ── Shutdown check ──
@@ -75,16 +75,19 @@ export function createChatRoute(config, lifecycle) {
         const child = runClaude(opts, res);
 
         // ── Track for naming & lifecycle ──
-        sessionMeta.folder = opts._effectiveFolder || parsed.folder;
-        sessionMeta.sessionId = parsed.sessionId;
-
         if (child) {
+            // Atomic replace to prevent mismatched folder/sessionId under concurrency (#12)
+            sessionMeta = {
+                folder: opts._effectiveFolder || parsed.folder,
+                sessionId: opts._effectiveSessionId || parsed.sessionId,
+            };
             lifecycle.activeProcesses.add(child);
             child.on('exit', () => {
                 lifecycle.activeProcesses.delete(child);
                 lifecycle.resetIdleTimer();
             });
         }
+        // child === null means runClaude already wrote error + DONE + end (#15)
     };
 }
 

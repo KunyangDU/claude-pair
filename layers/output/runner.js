@@ -1,10 +1,8 @@
 import { spawn } from 'child_process';
 import readline from 'readline';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import crypto from 'crypto';
 import { findClaude } from './find.js';
+import { findSession } from '../core/session.js';
 
 /**
  * Run Claude Code CLI and stream the response as SSE.
@@ -13,14 +11,24 @@ import { findClaude } from './find.js';
 export function runClaude(opts, res) {
     const claudePath = findClaude();
     if (!claudePath) {
-        res.write(`data: ${JSON.stringify({ error: 'Claude CLI not found. Set CLAUDE_PATH.' })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
+        endStream('Claude CLI not found. Set CLAUDE_PATH.');
         return;
     }
 
     const { message, sessionId, permission } = opts;
     let { folder } = opts;
+
+    let streamEnded = false;
+    function endStream(errMsg) {
+        if (streamEnded) return;
+        streamEnded = true;
+        if (res.writableEnded) return;
+        if (errMsg) {
+            res.write(`data: ${JSON.stringify({ error: errMsg })}\n\n`);
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+    }
 
     const args = ['--print'];
 
@@ -39,9 +47,7 @@ export function runClaude(opts, res) {
 
     // Validate folder
     if (!folder) {
-        res.write(`data: ${JSON.stringify({ error: 'No folder specified. Set default_folder in config or provide a folder/session.' })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
+        endStream('No folder specified. Set default_folder in config or provide a folder/session.');
         return null;
     }
 
@@ -66,20 +72,21 @@ export function runClaude(opts, res) {
     console.log(`[runner] spawn: ${claudePath} ${allArgs.map(a => `"${a}"`).join(' ')}`);
     console.log(`[runner] cwd: ${folder}`);
 
-    const child = spawn(claudePath, allArgs, {
+    const spawnOpts = {
         cwd: folder,
         env: { ...process.env },
         stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    };
+    // .cmd / .bat files on Windows require shell: true
+    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(claudePath)) {
+        spawnOpts.shell = true;
+    }
+    const child = spawn(claudePath, allArgs, spawnOpts);
 
     const MAX_EXECUTION_MS = 10 * 60 * 1000;
     const timeout = setTimeout(() => {
-        if (!res.writableEnded) {
-            child.kill();
-            res.write(`data: ${JSON.stringify({ error: 'Execution timeout (10 min)' })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-        }
+        child.kill();
+        endStream('Execution timeout (10 min)');
     }, MAX_EXECUTION_MS);
 
     const rl = readline.createInterface({ input: child.stdout });
@@ -89,10 +96,8 @@ export function runClaude(opts, res) {
         try { json = JSON.parse(line); } catch (_) { return; }
 
         if (json.type === 'error') {
-            res.write(`data: ${JSON.stringify({ error: json.error || json.message || 'Claude internal error' })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
             if (!child.killed) child.kill();
+            endStream(json.error || json.message || 'Claude internal error');
             return;
         }
 
@@ -124,8 +129,7 @@ export function runClaude(opts, res) {
                     choices: [{ index: 0, delta: { content: `\n\n---\n> \u{1f4a1} 回复「**允许**」执行 ${names} 操作\n` } }],
                 })}\n\n`);
             }
-            res.write('data: [DONE]\n\n');
-            res.end();
+            endStream();
         }
     });
 
@@ -135,24 +139,19 @@ export function runClaude(opts, res) {
 
     child.on('error', (err) => {
         console.error(`[runner] error: ${err.message}`);
-        if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-        }
+        endStream(err.message);
     });
 
     child.on('exit', (code, signal) => {
         clearTimeout(timeout);
         console.log(`[runner] exit: code=${code} signal=${signal}`);
-        if (code !== 0 && !res.writableEnded) {
+        if (code !== 0) {
             const msg = signal
                 ? `Claude process terminated by signal ${signal}`
                 : `Claude process exited with code ${code}`;
-            res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
+            endStream(msg);
         }
+        // Normal exit (code 0): result handler already called endStream()
     });
 
     res.on('close', () => {
@@ -164,27 +163,4 @@ export function runClaude(opts, res) {
     });
 
     return child;
-}
-
-function findSession(sessionId) {
-    if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) return { found: false, folder: null };
-    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
-    try {
-        const dirs = fs.readdirSync(projectsDir);
-        for (const dir of dirs) {
-            const sessionPath = path.join(projectsDir, dir, `${sessionId}.jsonl`);
-            if (fs.existsSync(sessionPath)) {
-                let folder = null;
-                try {
-                    const lines = fs.readFileSync(sessionPath, 'utf8').split('\n').slice(0, 100);
-                    for (const line of lines) {
-                        const cwdMatch = line.match(/"cwd"\s*:\s*"([^"]+)"/);
-                        if (cwdMatch) { folder = cwdMatch[1]; break; }
-                    }
-                } catch (_) {}
-                return { found: true, folder };
-            }
-        }
-    } catch (_) {}
-    return { found: false, folder: null };
 }

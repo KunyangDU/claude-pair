@@ -41,19 +41,19 @@ function parseSimpleYAML(raw) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
         const indent = line.search(/\S/);
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx === -1) continue;
+        const key = trimmed.slice(0, colonIdx).trim();
+        const val = trimmed.slice(colonIdx + 1).trim();
         if (indent === 0) {
-            const [key, ...rest] = trimmed.split(':');
-            const val = rest.join(':').trim();
             if (val === '') {
                 current = {};
-                result[key.trim()] = current;
+                result[key] = current;
             } else {
-                result[key.trim()] = stripQuotes(val);
+                result[key] = stripQuotes(val);
             }
         } else if (indent >= 2) {
-            const [key, ...rest] = trimmed.split(':');
-            const val = rest.join(':').trim();
-            current[key.trim()] = val ? stripQuotes(val) : '';
+            current[key] = val ? stripQuotes(val) : '';
         }
     }
     return result;
@@ -73,8 +73,14 @@ try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
     config = parseSimpleYAML(raw);
     console.log(`[config] loaded ${CONFIG_PATH}`);
-} catch (_) {
-    console.log('[config] failed to load config, using defaults');
+} catch (e) {
+    if (e.code === 'ENOENT') {
+        console.log('[config] no config file, using defaults');
+    } else if (e.code === 'EACCES') {
+        console.error(`[config] permission denied reading ${CONFIG_PATH}, using defaults`);
+    } else {
+        console.error(`[config] failed to load (${e.message}), using defaults`);
+    }
 }
 
 // ── Server setup ─────────────────────────────────────────────────
@@ -84,6 +90,10 @@ app.use(express.json({ limit: '1mb' }));
 app.use((err, req, res, next) => {
     if (err.type === 'entity.parse.failed') {
         res.status(400).json({ error: 'Invalid JSON in request body' });
+        return;
+    }
+    if (err.type === 'entity.too.large') {
+        res.status(413).json({ error: 'Request body too large (max 1MB)' });
         return;
     }
     next(err);
@@ -121,9 +131,15 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use((err, req, res, next) => {
+    console.error(`[server] unhandled error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+});
+
 // ── Start ────────────────────────────────────────────────────────
 function startServer() {
-    const PORT = config?.server?.port || 8787;
+    const rawPort = parseInt(config?.server?.port, 10);
+    const PORT = (Number.isInteger(rawPort) && rawPort >= 1024 && rawPort <= 65535) ? rawPort : 8787;
     const server = app.listen(PORT, () => {
         console.log(`\n  Local:  http://localhost:${PORT}`);
         const remote = config?.remote?.url || '(remote URL not configured)';

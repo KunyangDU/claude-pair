@@ -185,7 +185,7 @@ claude-pair serve
 | 现象 | 解决 |
 |------|------|
 | Chatbox 报 Network Error | 检查 tunnel 是否运行、域名 DNS 是否配好 |
-| `Missing "folder" in system prompt` | System Prompt 里没写 JSON，或格式不对 |
+| `No folder specified` | System Prompt 为空且未配置 `default_folder`，在 config 中设一个 |
 | `Folder not found` | 路径拼写错误或不存在 |
-| Claude 不执行编辑 | 默认 `ask` 模式是只读的，改 `"permission":"auto"` 或回复 `允许` |
-| `Invalid JSON in system prompt` | JSON 写错了，检查引号和逗号 |
+| Claude 不执行编辑 | 默认 `ask` 模式是只读的，回复 `允许` 即可临时授权 |
+| `Claude CLI not found` | 系统未安装 Claude Code 或 `CLAUDE_PATH` 环境变量未设置 |

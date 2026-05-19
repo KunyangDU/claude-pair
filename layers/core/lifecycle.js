@@ -22,16 +22,51 @@ export function createLifecycle(server) {
             shuttingDown = true;
             console.log('[lifecycle] idle timeout, shutting down');
             server.close(() => {
-                if (activeProcesses.size === 0) process.exit(0);
+                if (activeProcesses.size === 0) {
+                    process.exit(0);
+                } else {
+                    // Wait up to 10s for processes to finish, then force exit
+                    const forceExit = setTimeout(() => process.exit(0), 10000);
+                    const checkDone = () => {
+                        if (activeProcesses.size === 0) {
+                            clearTimeout(forceExit);
+                            process.exit(0);
+                        } else {
+                            setTimeout(checkDone, 100);
+                        }
+                    };
+                    checkDone();
+                }
             });
+        } else {
+            // Processes still active — re-arm timer to check again later
+            resetIdleTimer();
         }
     }
 
-    ['SIGINT', 'SIGTERM'].forEach(signal => {
+    const signals = ['SIGINT'];
+    if (process.platform !== 'win32') signals.push('SIGTERM');
+    signals.forEach(signal => {
         process.on(signal, () => {
             console.log(`\n[lifecycle] ${signal}, shutting down...`);
+            shuttingDown = true;
             for (const child of activeProcesses) child.kill();
-            process.exit(0);
+            // Wait up to 3s for children to exit, then force exit
+            const forceExit = setTimeout(() => process.exit(0), 3000);
+            if (activeProcesses.size === 0) {
+                clearTimeout(forceExit);
+                process.exit(0);
+            } else {
+                const checkDone = () => {
+                    if (activeProcesses.size === 0) {
+                        clearTimeout(forceExit);
+                        process.exit(0);
+                    } else {
+                        setTimeout(checkDone, 100);
+                    }
+                };
+                checkDone();
+            }
         });
     });
 

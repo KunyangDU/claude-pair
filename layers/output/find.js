@@ -26,7 +26,9 @@ function which(cmd) {
 
 function isExecutable(p) {
     try {
-        fs.accessSync(p, fs.constants.X_OK);
+        // Windows has no POSIX execute bits — check existence instead
+        const mode = process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK;
+        fs.accessSync(p, mode);
         return true;
     } catch (_) { return false; }
 }

@@ -20,7 +20,7 @@ claude-pair server on your Mac
 Claude Code CLI
 ```
 
-Your chat client sends an OpenAI-format request. The system prompt carries a JSON config with `folder`, `session`, and `permission`. The server spawns `claude --print --resume` and streams the response back via SSE.
+Your chat client sends an OpenAI-format request. The system prompt is a plain string — paste a session ID to resume, a path to start a new session, or leave it empty for the default folder. The server spawns `claude --print --resume` and streams the response back via SSE.
 
 ## Quick start
 
@@ -30,11 +30,7 @@ git clone https://github.com/KunyangDU/claude-pair.git
 cd claude-pair
 npm install
 
-# 2. Configure
-cp config.example.yaml config.yaml
-# Edit config.yaml with your API key (optional)
-
-# 3. Start
+# 2. Start (config auto-created at ~/.claude-pair/config.yaml)
 node server.js
 # → Local:  http://localhost:8787
 # → Remote: https://claude.your-domain.com/v1
@@ -74,7 +70,7 @@ Just a plain string — no JSON needed:
 
 **`auto`** — Full read-write. Claude can execute commands and edit files without asking.
 
-Switch modes anytime by changing the JSON field. No server restart needed.
+Switch modes anytime — reply `允许` to approve an edit, or set the permission mode in config. No server restart needed.
 
 ### Session workflow
 
